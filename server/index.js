@@ -18,8 +18,18 @@ const app = express();
 // =====================
 // Middleware
 // =====================
-app.use(cors());
+
+// Allow requests from anywhere for now (we will restrict later)
+app.use(
+  cors({
+    origin: "*",
+  })
+);
+
 app.use(express.json());
+
+// Needed sometimes on Render
+app.set("trust proxy", 1);
 
 // Serve uploaded resumes
 app.use("/uploads", express.static("uploads"));
@@ -31,9 +41,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/applications", applicationRoutes);
 
-// =====================
 // Default Route
-// =====================
 app.get("/", (req, res) => {
   res.send("Job Board API Running...");
 });
@@ -48,6 +56,7 @@ mongoose
   })
   .catch((err) => {
     console.error("MongoDB Connection Error:", err.message);
+    process.exit(1); // stop server if DB fails
   });
 
 // =====================
