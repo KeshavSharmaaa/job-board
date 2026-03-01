@@ -16,19 +16,30 @@ const applicationRoutes = require("./routes/applicationRoutes");
 const app = express();
 
 // =====================
-// Middleware
+// CORS Configuration
 // =====================
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://job-board-kzq33sty1-keshavsharmaaas-projects.vercel.app"
+];
 
-// Allow requests from anywhere for now (we will restrict later)
 app.use(
   cors({
-    origin: "*",
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
   })
 );
 
+// =====================
+// Middleware
+// =====================
 app.use(express.json());
-
-// Needed sometimes on Render
 app.set("trust proxy", 1);
 
 // Serve uploaded resumes
@@ -41,9 +52,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/jobs", jobRoutes);
 app.use("/api/applications", applicationRoutes);
 
-// Default Route
+// Health Check Route
 app.get("/", (req, res) => {
-  res.send("Job Board API Running...");
+  res.status(200).send("Job Board API Running 🚀");
 });
 
 // =====================
@@ -52,20 +63,20 @@ app.get("/", (req, res) => {
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("MongoDB Connected");
+    console.log("✅ MongoDB Connected");
   })
   .catch((err) => {
-    console.error("MongoDB Connection Error:", err.message);
-    process.exit(1); // stop server if DB fails
+    console.error("❌ MongoDB Connection Error:", err.message);
+    process.exit(1);
   });
 
 // =====================
 // Global Error Handler
 // =====================
 app.use((err, req, res, next) => {
-  console.error("SERVER ERROR:", err.stack);
+  console.error("🔥 SERVER ERROR:", err.stack);
   res.status(500).json({
-    message: "Something went wrong on the server",
+    message: "Internal Server Error",
   });
 });
 
@@ -75,5 +86,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
