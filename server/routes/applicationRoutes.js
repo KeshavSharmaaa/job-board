@@ -1,26 +1,19 @@
 const express = require("express");
 const router = express.Router();
-
+const authMiddleware = require("../middleware/authMiddleware");
+const multer = require("multer");
 const {
-  applyJob,
+  applyForJob,
   getMyApplications,
-  getApplicantsForEmployer,
+  getJobApplications,
   updateApplicationStatus,
 } = require("../controllers/applicationController");
 
-const { protect } = require("../middleware/authMiddleware");
-const upload = require("../middleware/uploadMiddleware");
+const upload = multer({ dest: "uploads/" });
 
-// Candidate apply with resume upload
-router.post("/", protect, upload.single("resume"), applyJob);
-
-// Candidate view own applications
-router.get("/my", protect, getMyApplications);
-
-// Employer view applicants
-router.get("/employer", protect, getApplicantsForEmployer);
-
-// Employer update status
-router.put("/:id/status", protect, updateApplicationStatus);
+router.post("/:jobId", authMiddleware, upload.single("resume"), applyForJob);
+router.get("/my", authMiddleware, getMyApplications);
+router.get("/job/:jobId", authMiddleware, getJobApplications);
+router.put("/:id/status", authMiddleware, updateApplicationStatus);
 
 module.exports = router;

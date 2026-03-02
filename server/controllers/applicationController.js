@@ -1,17 +1,19 @@
 const Application = require("../models/Application");
 const Job = require("../models/Job");
-const { sendEmail } = require("../utils/emailService");
+const User = require("../models/User");
+const nodemailer = require("nodemailer");
 
-/* =========================================
-   APPLY FOR JOB (Candidate Only)
-========================================= */
-exports.applyJob = async (req, res) => {
+// ==============================
+// APPLY FOR JOB
+// ==============================
+exports.applyForJob = async (req, res) => {
   try {
+    const jobId = req.params.jobId;
+
+    // Only candidate can apply
     if (req.user.role !== "candidate") {
       return res.status(403).json({ message: "Only candidates can apply" });
     }
-
-    const { jobId } = req.body;
 
     const job = await Job.findById(jobId).populate("employer");
 
@@ -19,154 +21,145 @@ exports.applyJob = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    // Prevent duplicate application
-    const existing = await Application.findOne({
+    // Check if already applied
+    const existingApplication = await Application.findOne({
       job: jobId,
-      candidate: req.user._id,
+      candidate: req.user.id,
     });
 
-    if (existing) {
-      return res.status(400).json({ message: "Already applied to this job" });
+    if (existingApplication) {
+      return res.status(400).json({ message: "Already applied" });
     }
 
-    const application = new Application({
+    const application = await Application.create({
       job: jobId,
-      candidate: req.user._id,
+      candidate: req.user.id,
       resume: req.file ? req.file.path : "",
-      status: "Pending",
+      status: "pending",
     });
 
-    await application.save();
-
-    // Email Candidate
+    // =============================
+    // SEND EMAIL TO EMPLOYER
+    // =============================
     try {
-      await sendEmail(
-        req.user.email,
-        "Application Submitted",
-        `You have successfully applied for "${job.title}". Status: Pending`
-      );
-    } catch (err) {
-      console.log("Candidate email failed:", err.message);
-    }
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
 
-    // Email Employer
-    try {
-      await sendEmail(
-        job.employer.email,
-        "New Job Application",
-        `A candidate applied for your job: "${job.title}".`
-      );
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: job.employer.email,
+        subject: "New Job Application",
+        text: `A candidate has applied for ${job.title}.`,
+      });
     } catch (err) {
       console.log("Employer email failed:", err.message);
     }
 
     res.status(201).json({ message: "Application submitted successfully" });
-
-  } catch (error) {
-    console.log("APPLY ERROR:", error);
-    res.status(500).json({ message: "Error applying for job" });
+  } catch (err) {
+    console.log("Apply Error:", err.message);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================================
-   CANDIDATE - View My Applications
-========================================= */
+// ==============================
+// GET MY APPLICATIONS (Candidate)
+// ==============================
 exports.getMyApplications = async (req, res) => {
   try {
-    if (req.user.role !== "candidate") {
-      return res.status(403).json({ message: "Access denied" });
-    }
-
     const applications = await Application.find({
-      candidate: req.user._id,
+      candidate: req.user.id,
     }).populate("job");
 
     res.json(applications);
-
-  } catch (error) {
-    console.log("MY APPLICATIONS ERROR:", error);
-    res.status(500).json({ message: "Error fetching applications" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================================
-   EMPLOYER - View Applicants
-========================================= */
-exports.getApplicantsForEmployer = async (req, res) => {
+// ==============================
+// GET JOB APPLICATIONS (Employer)
+// ==============================
+exports.getJobApplications = async (req, res) => {
   try {
-    if (req.user.role !== "employer") {
-      return res.status(403).json({ message: "Only employers allowed" });
+    const job = await Job.findById(req.params.jobId);
+
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
     }
 
-    const applications = await Application.find()
-      .populate({
-        path: "job",
-        match: { employer: req.user._id },
-      })
-      .populate("candidate", "name email");
+    // Only employer who posted job
+    if (job.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
 
-    // Remove null jobs (other employer jobs)
-    const filtered = applications.filter(app => app.job !== null);
+    const applications = await Application.find({
+      job: req.params.jobId,
+    }).populate("candidate");
 
-    res.json(filtered);
-
-  } catch (error) {
-    console.log("EMPLOYER VIEW ERROR:", error);
-    res.status(500).json({ message: "Error fetching applicants" });
+    res.json(applications);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================================
-   EMPLOYER - Accept / Reject Application
-========================================= */
+// ==============================
+// UPDATE STATUS (Employer Only)
+// ==============================
 exports.updateApplicationStatus = async (req, res) => {
   try {
-    if (req.user.role !== "employer") {
-      return res.status(403).json({ message: "Only employers allowed" });
-    }
-
     const { status } = req.body;
 
-    if (!["Accepted", "Rejected"].includes(status)) {
+    if (!["accepted", "rejected"].includes(status)) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
     const application = await Application.findById(req.params.id)
-      .populate({
-        path: "job",
-        populate: { path: "employer" },
-      })
-      .populate("candidate");
+      .populate("candidate")
+      .populate("job");
 
     if (!application) {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    // Ensure employer owns this job
-    if (
-      application.job.employer._id.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Not authorized" });
+    // Only employer who owns the job
+    if (application.job.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
 
     application.status = status;
     await application.save();
 
-    // Email candidate (safe block)
+    // =============================
+    // SEND STATUS EMAIL TO CANDIDATE
+    // =============================
     try {
-      await sendEmail(
-        application.candidate.email,
-        `Application ${status}`,
-        `Your application for "${application.job.title}" has been ${status}.`
-      );
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: application.candidate.email,
+        subject: `Application ${status}`,
+        text: `Your application for ${application.job.title} has been ${status}.`,
+      });
     } catch (err) {
       console.log("Status email failed:", err.message);
     }
 
-    res.json({ message: `Application ${status}` });
-
-  } catch (error) {
-    console.log("STATUS UPDATE ERROR:", error);
-    res.status(500).json({ message: "Error updating status" });
+    res.json({ message: "Status updated successfully" });
+  } catch (err) {
+    console.log("Update error:", err.message);
+    res.status(500).json({ message: "Server error" });
   }
 };
