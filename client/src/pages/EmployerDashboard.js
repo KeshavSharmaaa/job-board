@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import API from "../services/api";
 import Layout from "../components/Layout";
 
@@ -12,11 +12,10 @@ function EmployerDashboard() {
   // =============================
   // FETCH EMPLOYER JOBS
   // =============================
-  const fetchEmployerJobs = async () => {
+  const fetchEmployerJobs = useCallback(async () => {
     try {
       const res = await API.get("/jobs");
 
-      // Only show jobs posted by this employer
       const myJobs = res.data.filter(
         (job) => job.employer?._id === user?.id
       );
@@ -25,10 +24,10 @@ function EmployerDashboard() {
     } catch (err) {
       console.log("Error fetching employer jobs:", err);
     }
-  };
+  }, [user?.id]);
 
   // =============================
-  // FETCH APPLICATIONS FOR A JOB
+  // FETCH APPLICATIONS
   // =============================
   const fetchApplications = async (jobId) => {
     try {
@@ -44,7 +43,7 @@ function EmployerDashboard() {
   };
 
   // =============================
-  // UPDATE APPLICATION STATUS
+  // UPDATE STATUS
   // =============================
   const updateStatus = async (applicationId, status, jobId) => {
     try {
@@ -54,7 +53,7 @@ function EmployerDashboard() {
 
       alert("Status updated successfully");
 
-      // Refresh applications
+      // Refresh applications after update
       fetchApplications(jobId);
     } catch (err) {
       console.log("Status update error:", err);
@@ -62,6 +61,9 @@ function EmployerDashboard() {
     }
   };
 
+  // =============================
+  // INITIAL LOAD
+  // =============================
   useEffect(() => {
     const init = async () => {
       setLoading(true);
@@ -70,7 +72,7 @@ function EmployerDashboard() {
     };
 
     init();
-  }, []);
+  }, [fetchEmployerJobs]);
 
   return (
     <Layout>
@@ -132,7 +134,7 @@ function EmployerDashboard() {
                       href={`${process.env.REACT_APP_API_URL}/${app.resume}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-indigo-600 underline"
+                      className="text-indigo-600 underline block mt-2"
                     >
                       View Resume
                     </a>
