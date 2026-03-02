@@ -18,6 +18,7 @@ app.use(
       "http://localhost:3000",
       "https://job-board-kzq33sty1-keshavsharmaaas-projects.vercel.app"
     ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
   })
 );
