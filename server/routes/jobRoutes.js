@@ -1,6 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
+const authMiddleware = require("../middleware/authMiddleware");
+
 const {
   createJob,
   getJobs,
@@ -8,13 +10,16 @@ const {
   deleteJob,
 } = require("../controllers/jobController");
 
-const { protect } = require("../middleware/authMiddleware");
+// Create job (Employer only)
+router.post("/", authMiddleware, createJob);
 
+// Get all jobs
 router.get("/", getJobs);
+
+// Get single job
 router.get("/:id", getJobById);
 
-router.post("/", protect, createJob);
-
-router.delete("/:id", protect, deleteJob);
+// Delete job (Employer only)
+router.delete("/:id", authMiddleware, deleteJob);
 
 module.exports = router;

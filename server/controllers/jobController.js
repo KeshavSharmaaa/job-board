@@ -1,91 +1,88 @@
 const Job = require("../models/Job");
-const Application = require("../models/Application");
 
-/* =========================
-   CREATE JOB
-========================= */
-exports.createJob = async (req, res) => {
+// ============================
+// CREATE JOB (Employer Only)
+// ============================
+const createJob = async (req, res) => {
   try {
     if (req.user.role !== "employer") {
       return res.status(403).json({ message: "Only employers can post jobs" });
     }
 
-    const { title, company, location, description, salary } = req.body;
-
-    const job = new Job({
-      title,
-      company,
-      location,
-      description,
-      salary,
-      employer: req.user._id,
+    const job = await Job.create({
+      title: req.body.title,
+      company: req.body.company,
+      location: req.body.location,
+      description: req.body.description,
+      salary: req.body.salary,
+      employer: req.user.id,
     });
 
-    await job.save();
-
     res.status(201).json(job);
-
-  } catch (error) {
-    res.status(500).json({ message: "Error creating job" });
+  } catch (err) {
+    console.log("Create job error:", err.message);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================
-   GET ALL JOBS
-========================= */
-exports.getJobs = async (req, res) => {
+// ============================
+// GET ALL JOBS
+// ============================
+const getJobs = async (req, res) => {
   try {
     const jobs = await Job.find().populate("employer", "name email");
     res.json(jobs);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching jobs" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================
-   GET JOB BY ID
-========================= */
-exports.getJobById = async (req, res) => {
+// ============================
+// GET SINGLE JOB
+// ============================
+const getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate("employer");
+    const job = await Job.findById(req.params.id).populate(
+      "employer",
+      "name email"
+    );
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
     res.json(job);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching job" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-/* =========================
-   DELETE JOB (Owner Only)
-========================= */
-exports.deleteJob = async (req, res) => {
+// ============================
+// DELETE JOB (Employer Only)
+// ============================
+const deleteJob = async (req, res) => {
   try {
-    if (req.user.role !== "employer") {
-      return res.status(403).json({ message: "Only employers can delete jobs" });
-    }
-
     const job = await Job.findById(req.params.id);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    if (job.employer.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "Not your job" });
+    if (job.employer.toString() !== req.user.id) {
+      return res.status(403).json({ message: "Unauthorized" });
     }
-
-    // Delete related applications
-    await Application.deleteMany({ job: job._id });
 
     await job.deleteOne();
 
     res.json({ message: "Job deleted successfully" });
-
-  } catch (error) {
-    res.status(500).json({ message: "Error deleting job" });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
   }
+};
+
+module.exports = {
+  createJob,
+  getJobs,
+  getJobById,
+  deleteJob,
 };
