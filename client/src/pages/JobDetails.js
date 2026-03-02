@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import API from "../api";
+import API from "../services/api";
 import Layout from "../components/Layout";
 
 function JobDetails() {
