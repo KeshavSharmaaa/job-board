@@ -12,16 +12,7 @@ const app = express();
 // =====================
 // SIMPLE & SAFE CORS
 // =====================
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "https://job-board-kzq33sty1-keshavsharmaaas-projects.vercel.app"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
-    credentials: true
-  })
-);
+app.use(cors());
 
 app.use(express.json());
 app.set("trust proxy", 1);
