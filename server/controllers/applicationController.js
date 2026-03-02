@@ -1,16 +1,14 @@
 const Application = require("../models/Application");
 const Job = require("../models/Job");
-const User = require("../models/User");
 const nodemailer = require("nodemailer");
 
 // ==============================
-// APPLY FOR JOB
+// APPLY FOR JOB (Candidate Only)
 // ==============================
-exports.applyForJob = async (req, res) => {
+const applyForJob = async (req, res) => {
   try {
     const jobId = req.params.jobId;
 
-    // Only candidate can apply
     if (req.user.role !== "candidate") {
       return res.status(403).json({ message: "Only candidates can apply" });
     }
@@ -21,13 +19,12 @@ exports.applyForJob = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    // Check if already applied
-    const existingApplication = await Application.findOne({
+    const alreadyApplied = await Application.findOne({
       job: jobId,
       candidate: req.user.id,
     });
 
-    if (existingApplication) {
+    if (alreadyApplied) {
       return res.status(400).json({ message: "Already applied" });
     }
 
@@ -38,9 +35,7 @@ exports.applyForJob = async (req, res) => {
       status: "pending",
     });
 
-    // =============================
-    // SEND EMAIL TO EMPLOYER
-    // =============================
+    // EMAIL TO EMPLOYER
     try {
       const transporter = nodemailer.createTransport({
         service: "gmail",
@@ -54,7 +49,7 @@ exports.applyForJob = async (req, res) => {
         from: process.env.EMAIL_USER,
         to: job.employer.email,
         subject: "New Job Application",
-        text: `A candidate has applied for ${job.title}.`,
+        text: `A candidate applied for ${job.title}.`,
       });
     } catch (err) {
       console.log("Employer email failed:", err.message);
@@ -62,7 +57,7 @@ exports.applyForJob = async (req, res) => {
 
     res.status(201).json({ message: "Application submitted successfully" });
   } catch (err) {
-    console.log("Apply Error:", err.message);
+    console.log("Apply error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -70,7 +65,7 @@ exports.applyForJob = async (req, res) => {
 // ==============================
 // GET MY APPLICATIONS (Candidate)
 // ==============================
-exports.getMyApplications = async (req, res) => {
+const getMyApplications = async (req, res) => {
   try {
     const applications = await Application.find({
       candidate: req.user.id,
@@ -85,7 +80,7 @@ exports.getMyApplications = async (req, res) => {
 // ==============================
 // GET JOB APPLICATIONS (Employer)
 // ==============================
-exports.getJobApplications = async (req, res) => {
+const getJobApplications = async (req, res) => {
   try {
     const job = await Job.findById(req.params.jobId);
 
@@ -93,7 +88,6 @@ exports.getJobApplications = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    // Only employer who posted job
     if (job.employer.toString() !== req.user.id) {
       return res.status(403).json({ message: "Unauthorized" });
     }
@@ -111,7 +105,7 @@ exports.getJobApplications = async (req, res) => {
 // ==============================
 // UPDATE STATUS (Employer Only)
 // ==============================
-exports.updateApplicationStatus = async (req, res) => {
+const updateApplicationStatus = async (req, res) => {
   try {
     const { status } = req.body;
 
@@ -127,7 +121,6 @@ exports.updateApplicationStatus = async (req, res) => {
       return res.status(404).json({ message: "Application not found" });
     }
 
-    // Only employer who owns the job
     if (application.job.employer.toString() !== req.user.id) {
       return res.status(403).json({ message: "Unauthorized" });
     }
@@ -135,9 +128,7 @@ exports.updateApplicationStatus = async (req, res) => {
     application.status = status;
     await application.save();
 
-    // =============================
-    // SEND STATUS EMAIL TO CANDIDATE
-    // =============================
+    // EMAIL TO CANDIDATE
     try {
       const transporter = nodemailer.createTransport({
         service: "gmail",
@@ -162,4 +153,11 @@ exports.updateApplicationStatus = async (req, res) => {
     console.log("Update error:", err.message);
     res.status(500).json({ message: "Server error" });
   }
+};
+
+module.exports = {
+  applyForJob,
+  getMyApplications,
+  getJobApplications,
+  updateApplicationStatus,
 };
