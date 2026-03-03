@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import API from "../services/api";
 import Layout from "../components/Layout";
 
@@ -8,23 +8,6 @@ function EmployerDashboard() {
   const [loading, setLoading] = useState(true);
 
   const user = JSON.parse(localStorage.getItem("user"));
-
-  // =============================
-  // FETCH EMPLOYER JOBS
-  // =============================
-  const fetchEmployerJobs = useCallback(async () => {
-    try {
-      const res = await API.get("/jobs");
-
-      const myJobs = res.data.filter(
-        (job) => job.employer?._id === user?.id
-      );
-
-      setJobs(myJobs);
-    } catch (err) {
-      console.log("Error fetching employer jobs:", err);
-    }
-  }, [user?.id]);
 
   // =============================
   // FETCH APPLICATIONS
@@ -53,7 +36,6 @@ function EmployerDashboard() {
 
       alert("Status updated successfully");
 
-      // Refresh applications after update
       fetchApplications(jobId);
     } catch (err) {
       console.log("Status update error:", err);
@@ -65,14 +47,24 @@ function EmployerDashboard() {
   // INITIAL LOAD
   // =============================
   useEffect(() => {
-    const init = async () => {
-      setLoading(true);
-      await fetchEmployerJobs();
-      setLoading(false);
+    const fetchEmployerJobs = async () => {
+      try {
+        const res = await API.get("/jobs");
+
+        const myJobs = res.data.filter(
+          (job) => job.employer?._id === user?.id
+        );
+
+        setJobs(myJobs);
+      } catch (err) {
+        console.log("Error fetching employer jobs:", err);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    init();
-  }, [fetchEmployerJobs]);
+    fetchEmployerJobs();
+  }, [user?.id]);
 
   return (
     <Layout>
@@ -128,17 +120,6 @@ function EmployerDashboard() {
                       {app.status}
                     </span>
                   </p>
-
-                  {app.resume && (
-                    <a
-                      href={`${process.env.REACT_APP_API_URL}/${app.resume}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-indigo-600 underline block mt-2"
-                    >
-                      View Resume
-                    </a>
-                  )}
 
                   {app.status === "pending" && (
                     <div className="mt-3 space-x-3">
