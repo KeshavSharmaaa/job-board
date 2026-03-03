@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Job = require("../models/Job");
 
 // ============================
@@ -5,7 +6,7 @@ const Job = require("../models/Job");
 // ============================
 const createJob = async (req, res) => {
   try {
-    if (req.user.role !== "employer") {
+    if (!req.user || req.user.role !== "employer") {
       return res.status(403).json({ message: "Only employers can post jobs" });
     }
 
@@ -20,7 +21,7 @@ const createJob = async (req, res) => {
 
     res.status(201).json(job);
   } catch (err) {
-    console.log("Create job error:", err.message);
+    console.error("Create job error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -31,8 +32,9 @@ const createJob = async (req, res) => {
 const getJobs = async (req, res) => {
   try {
     const jobs = await Job.find().populate("employer", "name email");
-    res.json(jobs);
+    res.status(200).json(jobs);
   } catch (err) {
+    console.error("Get jobs error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -42,7 +44,14 @@ const getJobs = async (req, res) => {
 // ============================
 const getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate(
+    const { id } = req.params;
+
+    // ✅ Validate ObjectId before querying MongoDB
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid Job ID" });
+    }
+
+    const job = await Job.findById(id).populate(
       "employer",
       "name email"
     );
@@ -51,8 +60,9 @@ const getJobById = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    res.json(job);
+    res.status(200).json(job);
   } catch (err) {
+    console.error("Get job by ID error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -62,20 +72,28 @@ const getJobById = async (req, res) => {
 // ============================
 const deleteJob = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const { id } = req.params;
+
+    // ✅ Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid Job ID" });
+    }
+
+    const job = await Job.findById(id);
 
     if (!job) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    if (job.employer.toString() !== req.user.id) {
+    if (!req.user || job.employer.toString() !== req.user.id) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     await job.deleteOne();
 
-    res.json({ message: "Job deleted successfully" });
+    res.status(200).json({ message: "Job deleted successfully" });
   } catch (err) {
+    console.error("Delete job error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };
