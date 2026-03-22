@@ -16,9 +16,17 @@ function Login() {
     try {
       const res = await API.post("/auth/login", form);
       localStorage.setItem("token", res.data.token);
-      navigate("/");
+      localStorage.setItem("user", JSON.stringify(res.data.user)); // Needed for dashboard
+
+      // Role-based routing
+      if (res.data.user.role === "employer") {
+        navigate("/employer-dashboard");
+      } else {
+        navigate("/candidate-dashboard");
+      }
     } catch (err) {
-      alert("Login failed");
+      alert("Login failed. Please check your credentials.");
+      console.error(err);
     }
   };
 
