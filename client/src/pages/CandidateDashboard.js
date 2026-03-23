@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import PremiumNav from "../components/PremiumNav";
 import CandidateSidebar from "../components/CandidateSidebar";
 
 function CandidateDashboard() {
-  const navigate = useNavigate();
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
 
