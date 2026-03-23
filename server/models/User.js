@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema(
       enum: ["employer", "candidate"],
       default: "candidate",   // 🔥 no more required true
     },
+
+    profile: {
+      title: { type: String, default: "" },
+      experience: { type: String, default: "" }
+    }
   },
   { timestamps: true }
 );

@@ -5,10 +5,14 @@ const jwt = require("jsonwebtoken");
 // ================= REGISTER =================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email: rawEmail, password, role } = req.body;
+    const email = rawEmail ? rawEmail.toLowerCase().trim() : "";
+
+    console.log("REGISTER ATTEMPT:", { name, email, role });
 
     // Basic validation
     if (!name || !email || !password) {
+      console.log("REGISTER FAILED: Missing fields");
       return res.status(400).json({
         message: "All fields are required",
       });
@@ -17,6 +21,7 @@ exports.register = async (req, res) => {
     // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log("REGISTER FAILED: User already exists", email);
       return res.status(400).json({
         message: "User already exists",
       });
@@ -53,10 +58,14 @@ exports.register = async (req, res) => {
 // ================= LOGIN =================
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email: rawEmail, password } = req.body;
+    const email = rawEmail ? rawEmail.toLowerCase().trim() : "";
+
+    console.log("LOGIN ATTEMPT:", email);
 
     // Validate input
     if (!email || !password) {
+      console.log("LOGIN FAILED: Missing email/password");
       return res.status(400).json({
         message: "Email and password required",
       });
@@ -65,6 +74,7 @@ exports.login = async (req, res) => {
     // Find user
     const user = await User.findOne({ email });
     if (!user) {
+      console.log("LOGIN FAILED: User not found", email);
       return res.status(400).json({
         message: "Invalid credentials",
       });
@@ -72,7 +82,10 @@ exports.login = async (req, res) => {
 
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log("PASSWORD MATCH:", isMatch);
+
     if (!isMatch) {
+      console.log("LOGIN FAILED: Password mismatch for", email);
       return res.status(400).json({
         message: "Invalid credentials",
       });

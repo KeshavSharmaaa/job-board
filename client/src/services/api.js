@@ -1,9 +1,11 @@
 import axios from "axios";
 
+export const API_BASE_URL = process.env.NODE_ENV === "production" 
+  ? "https://job-board-api-e6bb.onrender.com" 
+  : "http://localhost:5000";
+
 const API = axios.create({
-  baseURL:
-    process.env.REACT_APP_API_URL ||
-    "https://job-board-api-e6bb.onrender.com/api",
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     "Content-Type": "application/json",
   },

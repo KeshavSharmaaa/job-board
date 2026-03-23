@@ -1,11 +1,10 @@
-import Navbar from "./Navbar";
+// Removed unused Navbar import
 import Footer from "./Footer";
 
 function Layout({ children }) {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Navbar />
-      <main className="flex-grow">{children}</main>
+      <main className="flex-grow pt-20">{children}</main>
       <Footer />
     </div>
   );

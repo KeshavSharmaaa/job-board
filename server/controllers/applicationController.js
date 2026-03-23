@@ -1,5 +1,6 @@
 const Application = require("../models/Application");
 const Job = require("../models/Job");
+const User = require("../models/User");
 const nodemailer = require("nodemailer");
 
 // ==============================
@@ -28,6 +29,7 @@ const applyForJob = async (req, res) => {
       return res.status(400).json({ message: "Already applied" });
     }
 
+    const candidate = await User.findById(req.user.id);
     const application = await Application.create({
       job: jobId,
       candidate: req.user.id,
@@ -35,7 +37,7 @@ const applyForJob = async (req, res) => {
       status: "pending",
     });
 
-    // EMAIL TO EMPLOYER
+    // EMAIL TO EMPLOYER AND CANDIDATE
     try {
       const transporter = nodemailer.createTransport({
         service: "gmail",
@@ -45,14 +47,37 @@ const applyForJob = async (req, res) => {
         },
       });
 
+      // To Employer
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: job.employer.email,
-        subject: "New Job Application",
-        text: `A candidate applied for ${job.title}.`,
+        subject: `New Application for ${job.title}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <h2 style="color: #4f46e5;">New Application Received!</h2>
+            <p>Hello <strong>${job.employer.name}</strong>,</p>
+            <p>You just received a new application from <strong>${candidate.name}</strong> for the position of <strong>${job.title}</strong>.</p>
+            <p>Please log in to your Employer Dashboard to review their resume and profile.</p>
+          </div>
+        `,
+      });
+
+      // To Candidate
+      await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: candidate.email,
+        subject: `Application Submitted: ${job.title}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <h2 style="color: #4f46e5;">Application Successful!</h2>
+            <p>Hi <strong>${candidate.name}</strong>,</p>
+            <p>Your application for <strong>${job.title}</strong> at <strong>${job.company}</strong> has been successfully submitted! We've notified the employer.</p>
+            <p>They will review your profile and update your status shortly. Good luck!</p>
+          </div>
+        `,
       });
     } catch (err) {
-      console.log("Employer email failed:", err.message);
+      console.log("Email dispatch failed:", err.message);
     }
 
     res.status(201).json({ message: "Application submitted successfully" });
@@ -138,11 +163,21 @@ const updateApplicationStatus = async (req, res) => {
         },
       });
 
+      const isAccepted = status === "accepted";
+      const subject = isAccepted ? `🎉 Good news: Application Accepted for ${application.job.title}` : `Update on your application for ${application.job.title}`;
+      
       await transporter.sendMail({
         from: process.env.EMAIL_USER,
         to: application.candidate.email,
-        subject: `Application ${status}`,
-        text: `Your application for ${application.job.title} has been ${status}.`,
+        subject: subject,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px;">
+            <h2 style="color: ${isAccepted ? '#10b981' : '#f43f5e'};">Application ${status === 'accepted' ? 'Accepted' : 'Update'}</h2>
+            <p>Hi <strong>${application.candidate.name}</strong>,</p>
+            <p>Your application for the position of <strong>${application.job.title}</strong> at <strong>${application.job.company}</strong> has been <strong>${status}</strong>.</p>
+            ${isAccepted ? '<p>Congratulations! The employer will likely reach out to you soon with next steps.</p>' : '<p>Thank you for applying. We wish you the best of luck in your job search!</p>'}
+          </div>
+        `,
       });
     } catch (err) {
       console.log("Status email failed:", err.message);
